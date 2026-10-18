@@ -1,6 +1,6 @@
 {
   "product": "RU / Foreign",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "schema": 1,
   "released": "2026-10-18",
   "ubuntu": [
@@ -8,6 +8,14 @@
     "26.04"
   ],
   "python": ">=3.12,<3.15",
+  "foreign_compat": {
+    "ubuntu": ["20.04"],
+    "python": ">=3.8",
+    "crypto_package": "python3-cryptography (Ubuntu)",
+    "image": "ghcr.io/sagernet/sing-box@sha256:80c639ba467885b28511fb7c980565c2d30a8752f778e7bc8abdbc91fbfd95ec",
+    "image_version": "v1.14.3",
+    "image_source": "https://github.com/SagerNet/sing-box/tree/v1.14.3"
+  },
   "sing_box": "1.14.3",
   "caddy": "2.11.7",
   "amneziawg_protocol": "3.1",

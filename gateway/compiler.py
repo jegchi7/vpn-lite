@@ -61,15 +61,16 @@ def reality_in(tag, port, private, short_id, server_name, users, uplink, resolve
             "tls": {"enabled": True, "server_name": server_name, "reality": {"enabled": True, "handshake": {"server": server_name, "server_port": 443, "bind_interface": uplink, "domain_resolver": resolver}, "private_key": private, "short_id": [short_id]}}}
 
 
-def foreign_config(c, s):
+def foreign_config(c, s, certificate_dir=None):
     f = c["foreign"]
     uplink = c["network"]["uplink"]
+    certificate_dir = certificate_dir if certificate_dir is not None else ETC
     return {
         "log": {"disabled": True},
         "dns": {"servers": [{"type": "udp", "tag": "resolver", "server": c["dns"]["foreign"], "bind_interface": uplink}], "final": "resolver", "strategy": "ipv4_only"},
         "inbounds": [
             reality_in("hop-reality", f["reality_port"], s["hop_reality_private"], s["hop_short_id"], f["server_name"], [{"uuid": s["hop_uuid"], "flow": "xtls-rprx-vision"}], uplink, "resolver"),
-            {"type": "hysteria2", "tag": "hop-hysteria", "listen": "0.0.0.0", "listen_port": f["hysteria_port"], "users": [{"name": "ru-gateway", "password": s["hop_password"]}], "obfs": {"type": "salamander", "password": s["obfs_password"]}, "tls": {"enabled": True, "server_name": f["tls_server_name"], "certificate_path": str(ETC / "hop.crt"), "key_path": str(ETC / "hop.key")}},
+            {"type": "hysteria2", "tag": "hop-hysteria", "listen": "0.0.0.0", "listen_port": f["hysteria_port"], "users": [{"name": "ru-gateway", "password": s["hop_password"]}], "obfs": {"type": "salamander", "password": s["obfs_password"]}, "tls": {"enabled": True, "server_name": f["tls_server_name"], "certificate_path": str(certificate_dir / "hop.crt"), "key_path": str(certificate_dir / "hop.key")}},
         ],
         "outbounds": [{"type": "direct", "tag": "direct", "bind_interface": uplink, "domain_resolver": "resolver"}],
         "route": {"default_domain_resolver": "resolver", "rules": [
