@@ -1,0 +1,59 @@
+{
+  "product": "RU / Foreign",
+  "version": "1.0.0",
+  "schema": 1,
+  "released": "2026-10-18",
+  "ubuntu": [
+    "24.04",
+    "26.04"
+  ],
+  "python": ">=3.12,<3.15",
+  "sing_box": "1.14.3",
+  "caddy": "2.11.7",
+  "amneziawg_protocol": "3.1",
+  "awg_go_commit": "b5928efb6ca19f0153958460c3d141f04abc5c2e",
+  "awg_tools_commit": "ee0f0a9aa34ff0a0da4b3433b9512781cfe02843",
+  "go": "1.27.2",
+  "assets": {
+    "sing_box_amd64": {
+      "url": "https://github.com/SagerNet/sing-box/releases/download/v1.14.3/sing-box-1.14.3-linux-amd64.tar.gz",
+      "sha256": "e2bdf179c15a3652955dc44867e33ca0965c9c9b91b34267dcc5a5d639a5feee",
+      "filename": "sing-box-1.14.3-linux-amd64.tar.gz"
+    },
+    "sing_box_arm64": {
+      "url": "https://github.com/SagerNet/sing-box/releases/download/v1.14.3/sing-box-1.14.3-linux-arm64.tar.gz",
+      "sha256": "29dae24d76bea3bc62d07dd3e60cfc12003de7debbd6b768df9be9c68360174e",
+      "filename": "sing-box-1.14.3-linux-arm64.tar.gz"
+    },
+    "caddy_amd64": {
+      "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_linux_amd64.tar.gz",
+      "sha256": "727b91701a392de6ebc5027509f548bf39979e5216340d0faed8fa5e69c84f8b",
+      "filename": "caddy_2.11.7_linux_amd64.tar.gz"
+    },
+    "caddy_arm64": {
+      "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_linux_arm64.tar.gz",
+      "sha256": "d8fc6d179a5d283028a472a5618564f6ad8a86fed513e64f032b3b0b7cc45e42",
+      "filename": "caddy_2.11.7_linux_arm64.tar.gz"
+    },
+    "awg_go": {
+      "url": "https://codeload.github.com/amnezia-vpn/amneziawg-go/tar.gz/b5928efb6ca19f0153958460c3d141f04abc5c2e",
+      "sha256": "10bf7458e090bf52f87df27adcd3904a60e4d17fab844d9415e46379147f1ab4",
+      "filename": "awg-go.tar.gz"
+    },
+    "awg_tools": {
+      "url": "https://codeload.github.com/amnezia-vpn/amneziawg-tools/tar.gz/ee0f0a9aa34ff0a0da4b3433b9512781cfe02843",
+      "sha256": "22438f231d39ea27e4bdc69707ec3103357f3cecc9ad3eecba18a61e5b39c9b9",
+      "filename": "awg-tools.tar.gz"
+    },
+    "go_amd64": {
+      "url": "https://go.dev/dl/go1.27.2.linux-amd64.tar.gz",
+      "sha256": "ecbadb99091a3f46e31f5f934b068b1864eafa7995211b39eaddf76996045fe5",
+      "filename": "go1.27.2.linux-amd64.tar.gz"
+    },
+    "go_arm64": {
+      "url": "https://go.dev/dl/go1.27.2.linux-arm64.tar.gz",
+      "sha256": "94f3e30b8e374bc285e7dadc11e0865726b9bc6e85b841ccceaabc0214c6b7c8",
+      "filename": "go1.27.2.linux-arm64.tar.gz"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+[Unit]
+Description=AmneziaWG 3.1 userspace entry
+After=network-online.target ruvpn-netguard.service
+Before=ruvpn-sing.service
+Requires=ruvpn-netguard.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ruvpn/current
+ExecStart=/opt/ruvpn/current/bin/amneziawg-go -f awg0
+ExecStartPost=/opt/ruvpn/current/scripts/awg-up.sh
+ExecStopPost=-/usr/sbin/ip link del awg0
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/run/amneziawg /run/wireguard
+RuntimeDirectory=amneziawg wireguard
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,5 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>{% block title %}RU / Foreign{% endblock %}</title><link rel="stylesheet" href="/static/app.css"><link rel="icon" href="/static/mark.svg" type="image/svg+xml"></head>
+<body><div class="shell"><header><a class="brand" href="/"><img src="/static/mark.svg" width="32" height="32" alt=""><span>RU <i>/</i> FOREIGN<small>Частный шлюз</small></span></a>{% if user %}<nav><a href="/" {% if request.url.path=='/' %}aria-current="page"{% endif %}>Устройства</a><a href="/guide">Подключение</a><a href="/account">{{user.login}}</a>{% if user.admin %}<a href="/manage/{{cfg.admin_slug}}">Управление</a>{% endif %}</nav>{% endif %}</header>
+<main>{% block content %}{% endblock %}</main>
+<footer><span>Личный доступ. Два протокола. Один профиль на устройство.</span>{% if user %}<form method="post" action="/logout"><input type="hidden" name="csrf" value="{{user.csrf}}"><button class="link" type="submit">Выйти</button></form>{% endif %}</footer></div></body></html>

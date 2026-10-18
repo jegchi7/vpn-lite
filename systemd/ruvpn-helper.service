@@ -1,0 +1,21 @@
+[Unit]
+Description=RU / Foreign privileged configuration helper
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ruvpn/current
+ExecStart=/opt/ruvpn/current/.venv/bin/python -m gateway.helper
+Restart=on-failure
+RestartSec=3
+RuntimeDirectory=ruvpn
+RuntimeDirectoryMode=0755
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/etc/ruvpn /var/lib/ruvpn /run/ruvpn
+NoNewPrivileges=yes
+PrivateTmp=yes
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+{
+  "version": "bundled-2026-10-18",
+  "updated_at": 0,
+  "ip_url": {
+    "url": "https://github.com/ipverse/country-ip-blocks",
+    "commit": "90a64519047d06dd1f7419bb8662f209bd17a1cc",
+    "sha256": "9b2d8bcd683e2afd35a70191ba6be2f73a9d5f7651a9076a0810adc3d5c30a20",
+    "license": "CC0-1.0",
+    "note": "RIR delegation, not exact operational geolocation"
+  },
+  "domains_url": {
+    "source": "Project-maintained baseline",
+    "license": "MIT",
+    "version": "1.0.0"
+  }
+}

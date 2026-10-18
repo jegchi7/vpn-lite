@@ -1,0 +1,70 @@
+# Один файл для двух хостов. На каждом uplink=auto определяется локально.
+# Никаких паролей/ключей в этом файле. Замените CHANGE_ME перед установкой.
+[network]
+ru_ipv4 = "CHANGE_ME"
+uplink = "auto"
+tun_subnet = "172.29.255.0/30"
+ssh_port = 22
+management_cidrs = ["0.0.0.0/0", "::/0"]
+extra_tcp_ports = []
+extra_udp_ports = []
+rollback_seconds = 180
+allowed_services = []
+# Необязательно: [{ip="192.168.50.10", port=8123, protocol="tcp"}]
+
+[panel]
+domain = "vpn.example.com"
+port = 8443
+email = "owner@example.com"
+admin_login = "owner"
+
+[awg]
+port = 443
+subnet = "10.77.0.0/24"
+subnet6 = "fd42:7275:7670::/64"
+mtu = 1280
+
+[vless]
+port = 443
+# Владелец выбирает доступный с RU TLS 1.3 / X25519 target.
+server_name = "www.microsoft.com"
+
+[foreign]
+ipv4 = "CHANGE_ME"
+reality_port = 443
+hysteria_port = 443
+server_name = "www.microsoft.com"
+tls_server_name = "hop.ruvpn.internal"
+
+[dns]
+ru = "77.88.8.8"
+foreign = "1.1.1.1"
+foreign_server_name = "cloudflare-dns.com"
+
+[paths]
+mode = "auto"
+primary_enabled = true
+backup_enabled = true
+interval = 30
+failures = 3
+hold_seconds = 120
+recovery_successes = 5
+urls = ["https://www.gstatic.com/generate_204", "https://cp.cloudflare.com/generate_204"]
+
+[telegram]
+enabled = false
+username = ""
+route = "foreign"
+notify_after = 300
+
+[limits]
+users = 7
+devices = 20
+default_device_limit = 3
+
+[lists]
+ip_url = "https://raw.githubusercontent.com/ipverse/country-ip-blocks/master/country/ru/ipv4-aggregated.txt"
+ip_license = "CC0-1.0"
+# Необязательно: HTTPS-файл, один suffix на строку, комментарии начинаются с #.
+domains_url = ""
+domains_license = "MIT"
