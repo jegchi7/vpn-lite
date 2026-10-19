@@ -52,6 +52,9 @@ def domain(value: str) -> str:
 
 
 def validate_setup(c: dict):
+    deployment = c.get("deployment", {})
+    if not isinstance(deployment, dict) or deployment.get("entry", "ru") not in {"ru", "foreign"}:
+        raise ValueError("deployment.entry: ru или foreign")
     required = ("network", "panel", "awg", "vless", "dns", "foreign", "paths", "telegram", "limits")
     for section in required:
         if not isinstance(c.get(section), dict):
@@ -62,6 +65,8 @@ def validate_setup(c: dict):
     ipaddress.IPv4Address(n["ru_ipv4"])
     if c["foreign"].get("ipv4"):
         ipaddress.IPv4Address(c["foreign"]["ipv4"])
+    if n["ru_ipv4"] == c["foreign"].get("ipv4"):
+        raise ValueError("RU и зарубежный сервер должны иметь разные IPv4")
     for network in n["management_cidrs"]:
         ipaddress.ip_network(network, strict=False)
     for port in [n["ssh_port"], c["panel"]["port"], c["awg"]["port"], c["vless"]["port"], c["foreign"]["reality_port"], c["foreign"]["hysteria_port"], *n.get("extra_tcp_ports", []), *n.get("extra_udp_ports", [])]:

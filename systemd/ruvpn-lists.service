@@ -1,5 +1,5 @@
 [Unit]
-Description=RU / Foreign atomic daily policy list update
+Description=CHIMERA atomic daily policy list update
 After=ruvpn-helper.service
 ConditionPathExists=/etc/ruvpn/paired.json
 

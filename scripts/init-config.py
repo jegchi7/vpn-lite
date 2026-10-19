@@ -9,6 +9,7 @@ parser.add_argument("--ru", required=True)
 parser.add_argument("--foreign", required=True)
 parser.add_argument("--domain", required=True)
 parser.add_argument("--email", required=True)
+parser.add_argument("--entry", choices=["ru", "foreign"], default="ru", help="Где принимаются клиенты, размещены панель и бот")
 parser.add_argument("--output", default="setup.toml")
 args = parser.parse_args()
 for address in [args.ru, args.foreign]:
@@ -18,6 +19,9 @@ if args.ru == args.foreign:
     parser.error("Нужны два разных сервера")
 root = Path(__file__).resolve().parent.parent
 text = (root / "setup.example.toml").read_text()
+text = text.replace('entry = "ru"', 'entry = ' + json.dumps(args.entry))
+if args.entry == "foreign":
+    text = text.replace('route = "foreign"', 'route = "direct"')
 text = text.replace('ru_ipv4 = "CHANGE_ME"', 'ru_ipv4 = ' + json.dumps(args.ru)).replace('ipv4 = "CHANGE_ME"', 'ipv4 = ' + json.dumps(args.foreign))
 text = text.replace('domain = "vpn.example.com"', 'domain = ' + json.dumps(args.domain)).replace('email = "owner@example.com"', 'email = ' + json.dumps(args.email))
 output = Path(args.output)

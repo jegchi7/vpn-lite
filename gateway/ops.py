@@ -23,7 +23,7 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
-from . import compiler, control, crypto, db, helper, lists, network, rpc, security
+from . import compiler, control, crypto, db, helper, lists, network, rpc, security, topology
 from .config import ETC, ROOT, STATE, atomic, read_json, setup, validate_setup, write_json
 from .system import BIN, run, service
 
@@ -81,15 +81,15 @@ def certificate(c):
 
 def publish(c, s):
     a, v = c["awg"], c["vless"]
-    p = {"endpoint": c["network"]["ru_ipv4"], "url": f"https://{c['panel']['domain']}:{c['panel']['port']}", "admin_slug": s["admin_slug"], "bot_username": c["telegram"]["username"].lstrip("@"), "limits": c["limits"], "awg": {**a, "gateway": str(ipaddress.ip_network(a["subnet"])[1]), "public_key": s["awg_public"], "obfuscation": s["awg_obfuscation"]}, "vless": {**v, "public_key": s["entry_reality_public"], "short_id": s["entry_short_id"]}}
+    p = {"endpoint": topology.entry_ip(c), "topology": topology.public_info(c), "url": f"https://{c['panel']['domain']}:{c['panel']['port']}", "admin_slug": s["admin_slug"], "bot_username": c["telegram"]["username"].lstrip("@"), "limits": c["limits"], "awg": {**a, "gateway": str(ipaddress.ip_network(a["subnet"])[1]), "public_key": s["awg_public"], "obfuscation": s["awg_obfuscation"]}, "vless": {**v, "public_key": s["entry_reality_public"], "short_id": s["entry_short_id"]}}
     app_file(ETC / "public.json", p)
-    app_file(ETC / "control.json", {"paths": c["paths"], "telegram": c["telegram"], "bot_token": s.get("bot_token", ""), "proxy_auth": s["proxy_auth"]})
+    app_file(ETC / "control.json", {"paths": c["paths"], "telegram": c["telegram"], "topology": topology.public_info(c), "bot_token": s.get("bot_token", ""), "proxy_auth": s["proxy_auth"]})
 
 
 def create_owner(c):
     db.initialize()
     with db.transaction() as conn:
-        conn.execute("INSERT INTO gateways(id,label,endpoint) VALUES(1,'foreign',?) ON CONFLICT(id) DO UPDATE SET endpoint=excluded.endpoint", (c["foreign"]["ipv4"],))
+        conn.execute("INSERT INTO gateways(id,label,endpoint) VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET label=excluded.label,endpoint=excluded.endpoint", (topology.remote_region(c), topology.remote_ip(c)))
         for tag, kind in [("primary", "vless-reality"), ("backup", "hysteria2")]:
             conn.execute("INSERT INTO transports(id,gateway_id,kind,enabled) VALUES(?,1,?,?) ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled", (tag, kind, int(c["paths"].get(tag + "_enabled", True))))
     if db.one("SELECT id FROM users WHERE admin=1"):
@@ -140,10 +140,16 @@ https://{host}:{port} {{
 
 def validate_pair(p, c):
     expected = {"schema", "ipv4", "reality_port", "hysteria_port", "server_name", "tls_server_name", "uuid", "public_key", "short_id", "password", "obfs_password", "certificate"}
-    if not isinstance(p, dict) or set(p) != expected or p["schema"] != 1:
+    if isinstance(p, dict) and p.get("schema") == 2:
+        expected |= {"entry_location", "entry_ipv4"}
+    if not isinstance(p, dict) or set(p) != expected or p["schema"] not in {1, 2}:
         raise ValueError("Неизвестная схема пакета сопряжения")
-    if p["ipv4"] != c["foreign"]["ipv4"] or p["ipv4"] == c["network"]["ru_ipv4"]:
-        raise ValueError("IP пакета не совпадает с отдельным foreign VPS в setup")
+    if p["schema"] == 1 and topology.entry_region(c) != "ru":
+        raise ValueError("Для зарубежного входа нужен новый пакет RU-выхода со схемой 2")
+    if p["schema"] == 2 and (p["entry_location"] != topology.entry_region(c) or p["entry_ipv4"] != topology.entry_ip(c)):
+        raise ValueError("Пакет выпущен для другой точки входа")
+    if p["ipv4"] != topology.remote_ip(c) or p["ipv4"] == topology.entry_ip(c):
+        raise ValueError("IP пакета не совпадает с отдельным межсерверным выходом в setup")
     ipaddress.IPv4Address(p["ipv4"])
     for k in ["reality_port", "hysteria_port"]:
         if not isinstance(p[k], int) or not 1 <= p[k] <= 65535:
@@ -180,7 +186,9 @@ def pair_import(path, c):
 def export_pair(c, output):
     s = read_json(ETC / "secrets.json")
     f = c["foreign"]
-    p = {"schema": 1, "ipv4": f["ipv4"], "reality_port": f["reality_port"], "hysteria_port": f["hysteria_port"], "server_name": f["server_name"], "tls_server_name": f["tls_server_name"], "uuid": s["hop_uuid"], "public_key": s["hop_reality_public"], "short_id": s["hop_short_id"], "password": s["hop_password"], "obfs_password": s["obfs_password"], "certificate": (ETC / "hop.crt").read_text()}
+    p = {"schema": 1, "ipv4": topology.remote_ip(c), "reality_port": f["reality_port"], "hysteria_port": f["hysteria_port"], "server_name": f["server_name"], "tls_server_name": f["tls_server_name"], "uuid": s["hop_uuid"], "public_key": s["hop_reality_public"], "short_id": s["hop_short_id"], "password": s["hop_password"], "obfs_password": s["obfs_password"], "certificate": (ETC / "hop.crt").read_text()}
+    if topology.entry_region(c) == "foreign":
+        p.update(schema=2, entry_location="foreign", entry_ipv4=topology.entry_ip(c))
     password = getpass.getpass("Новый пароль пакета (16+ символов): ")
     if password != getpass.getpass("Повторите пароль пакета: "):
         raise ValueError("Пароли не совпадают")
@@ -194,6 +202,8 @@ def install(role, setup_path, pair_path=None):
     c = load_setup(setup_path)
     if (ETC / "role").exists() and (ETC / "role").read_text().strip() != role:
         raise ValueError("На этом хосте уже установлена другая роль")
+    if (ETC / "setup.json").exists() and topology.entry_region(setup()) != topology.entry_region(c):
+        raise ValueError("Смена страны входа требует отдельного развёртывания входа и relay; существующая сеть не изменена")
     network.preflight(c, role)
     s = ensure_secrets(role)
     imported = None
@@ -202,7 +212,7 @@ def install(role, setup_path, pair_path=None):
         if pair_path:
             imported, imported_data = read_pair(pair_path, c)
         if not imported_data and not (ETC / "paired.json").exists():
-            raise ValueError("Сначала нужен зашифрованный пакет foreign: --pair /root/ruvpn-pair.ruvpn")
+            raise ValueError("Сначала нужен зашифрованный пакет межсерверного выхода: --pair /root/ruvpn-pair.ruvpn")
         validate_pair(imported_data or read_json(ETC / "paired.json"), c)
         lists.initialize()
     else:
@@ -267,7 +277,9 @@ def wait_tun():
 
 def show_status():
     role = (ETC / "role").read_text().strip()
-    print("RU / Foreign · роль " + role)
+    c = setup()
+    location = topology.entry_region(c) if role == "ru" else topology.remote_region(c)
+    print("CHIMERA · " + ("вход" if role == "ru" else "межсерверный выход") + " · " + ("Россия" if location == "ru" else "зарубежный"))
     names = ["ruvpn-netguard", "ruvpn-sing"] + (["ruvpn-awg", "ruvpn-helper", "ruvpn-panel", "ruvpn-caddy"] if role == "ru" else [])
     for name in names:
         print(name + ": " + (service(name, "is-active").stdout.strip() or "inactive"))
@@ -282,7 +294,7 @@ def show_status():
             for name in ["primary", "backup"]:
                 print(name + ": " + p[name]["state"])
             if age > 120:
-                print("Статус устарел; доступность foreign сейчас не подтверждена")
+                print("Статус устарел; доступность межсерверного выхода сейчас не подтверждена")
         else:
             print("Пути: unknown; успешных эксплуатационных запросов ещё нет")
         latest = db.one("SELECT id,state FROM applied_revisions ORDER BY id DESC LIMIT 1")
@@ -299,7 +311,7 @@ def main():
     os.umask(0o077)
     if os.geteuid() != 0:
         raise SystemExit("Запустите от root")
-    parser = argparse.ArgumentParser(description="RU / Foreign operations")
+    parser = argparse.ArgumentParser(description="CHIMERA operations")
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("install")
     p.add_argument("role", choices=["ru", "foreign"])
@@ -358,14 +370,14 @@ def main():
                 atomic(ETC / "paired.json", old)
             raise
         source.unlink()
-        print("Foreign импортирован, конфигурация применена, пакет удалён.")
+        print("Межсерверный выход импортирован, конфигурация применена, пакет удалён.")
     elif command == "export-pair":
         if (ETC / "role").read_text().strip() != "foreign":
-            raise ValueError("Экспорт выполняется только на foreign")
+            raise ValueError("Экспорт выполняется только на межсерверном выходе (relay)")
         export_pair(setup(), args.output)
     elif command == "rotate-pair":
         if (ETC / "role").read_text().strip() != "foreign":
-            raise ValueError("Ротация выполняется только на foreign")
+            raise ValueError("Ротация выполняется только на межсерверном выходе (relay)")
         # Explicit owner action, separate from idempotent installation.
         (ETC / "secrets.json").unlink()
         (ETC / "hop.crt").unlink(missing_ok=True)
@@ -375,7 +387,7 @@ def main():
         helper.net_file(ETC / "sing-box.json", json.dumps(compiler.foreign_config(setup(), s), indent=2))
         service("ruvpn-sing", "restart")
         export_pair(setup(), args.output)
-        print("Прежние межсерверные секреты отозваны. Импортируйте новый пакет на RU.")
+        print("Прежние межсерверные секреты отозваны. Импортируйте новый пакет на входной узел.")
     elif command == "lists-update":
         with control.serialized():
             rpc.call("lists-update")
@@ -383,7 +395,7 @@ def main():
     elif command == "set-bot":
         c = setup()
         if (ETC / "role").read_text().strip() != "ru":
-            raise ValueError("Бот устанавливается только на RU")
+            raise ValueError("Бот устанавливается только на входном узле, где размещена панель")
         value = getpass.getpass("Токен Telegram-бота (пусто — отключить): ")
         if value and not re.fullmatch(r"[0-9]+:[a-zA-Z0-9_-]{25,}", value):
             raise ValueError("Некорректный токен")

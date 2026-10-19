@@ -177,8 +177,10 @@ def invite(actor, user_id, kind):
     if user_id != actor and not owner["admin"]:
         raise ValueError("Нет доступа")
     target = require_user(user_id)
-    if kind not in {"join", "telegram"}:
+    if kind not in {"join", "reset", "telegram"}:
         raise ValueError("Неизвестный тип приглашения")
+    if kind == "reset" and not owner["admin"]:
+        raise ValueError("Нужны права владельца")
     if kind == "join" and target["password"]:
         raise ValueError("Пароль уже установлен; приглашение входа больше не выдаётся")
     if kind == "telegram" and target["telegram_id"]:
@@ -186,23 +188,27 @@ def invite(actor, user_id, kind):
     value = security.token()
     with db.transaction() as c:
         c.execute("DELETE FROM invitations WHERE user_id=? AND kind=?", (user_id, kind))
-        c.execute("INSERT INTO invitations VALUES(?,?,?,?,NULL)", (security.digest(value), user_id, kind, int(time.time()) + (86400 if kind == "join" else 3600)))
+        c.execute("INSERT INTO invitations VALUES(?,?,?,?,NULL)", (security.digest(value), user_id, kind, int(time.time()) + (86400 if kind in {"join", "reset"} else 3600)))
         db.event(c, actor, "invitation_created", f"user={user_id}; kind={kind}")
     return value
 
 
-def consume_invitation(value, *, password=None, telegram_id=None):
+def consume_invitation(value, *, password=None, telegram_id=None, reset=False):
     now = int(time.time())
-    hashed = security.password_hash(password) if password is not None else None
-    kind = "join" if hashed else "telegram"
+    kind = ("reset" if reset else "join") if password is not None else "telegram"
     with db.transaction() as c:
-        row = c.execute("SELECT i.*,u.blocked,u.password,u.telegram_id FROM invitations i JOIN users u ON u.id=i.user_id WHERE i.token_hash=? AND i.kind=? AND i.expires>? AND i.consumed IS NULL", (security.digest(value), kind, now)).fetchone()
+        row = c.execute("SELECT i.*,u.blocked,u.password,u.telegram_id,u.admin FROM invitations i JOIN users u ON u.id=i.user_id WHERE i.token_hash=? AND i.kind=? AND i.expires>? AND i.consumed IS NULL", (security.digest(value), kind, now)).fetchone()
         if not row or row["blocked"]:
             raise ValueError("Приглашение истекло или уже использовано")
-        if hashed:
-            if row["password"]:
+        if password is not None:
+            if row["password"] and not reset:
                 raise ValueError("Приглашение уже использовано")
+            hashed = security.password_hash(password, admin=bool(row["admin"]))
             c.execute("UPDATE users SET password=? WHERE id=?", (hashed, row["user_id"]))
+            if reset:
+                for table in ("sessions", "passkeys", "downloads", "auth_challenges"):
+                    c.execute(f"DELETE FROM {table} WHERE user_id=?", (row["user_id"],))
+                c.execute("DELETE FROM invitations WHERE user_id=? AND token_hash!=?", (row["user_id"], security.digest(value)))
         else:
             if not isinstance(telegram_id, int) or telegram_id <= 0 or row["telegram_id"]:
                 raise ValueError("Привязка недоступна")
@@ -253,11 +259,45 @@ def change_password(user_id, old, new):
     user = require_user(user_id)
     if not security.verify_password(user["password"], old):
         raise ValueError("Текущий пароль не подошёл")
-    hashed = security.password_hash(new)
+    hashed = security.password_hash(new, admin=bool(user["admin"]))
     with db.transaction() as c:
         c.execute("UPDATE users SET password=? WHERE id=?", (hashed, user_id))
         c.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
         db.event(c, user_id, "password_changed")
+
+
+def rename_device(user_id, device_id, name):
+    device_for(user_id, device_id)
+    name = str(name).strip()
+    if not name or len(name) > 48 or any(ord(c) < 32 for c in name):
+        raise ValueError("Название устройства: от 1 до 48 символов")
+    with db.transaction() as c:
+        if c.execute("SELECT 1 FROM devices WHERE user_id=? AND name=? AND desired=1 AND id!=?", (user_id, name, device_id)).fetchone():
+            raise ValueError("Устройство с таким названием уже есть")
+        c.execute("UPDATE devices SET name=? WHERE id=?", (name, device_id))
+        db.event(c, user_id, "device_renamed", device_id)
+
+
+def delete_revoked(user_id, device_id=None):
+    require_user(user_id)
+    with serialized():
+        with db.transaction() as c:
+            if device_id:
+                row = c.execute("SELECT desired,state FROM devices WHERE id=? AND user_id=?", (device_id, user_id)).fetchone()
+                if not row:
+                    raise ValueError("Устройство не найдено")
+                if row["desired"] or row["state"] != "applied":
+                    raise ValueError("Удалить можно только устройство с успешно отозванным доступом")
+                ids = [device_id]
+            else:
+                ids = [row["id"] for row in c.execute("SELECT id FROM devices WHERE user_id=? AND desired=0 AND state='applied'", (user_id,))]
+            for identifier in ids:
+                c.execute("DELETE FROM downloads WHERE device_id=?", (identifier,))
+                c.execute("DELETE FROM credentials WHERE device_id=?", (identifier,))
+                c.execute("DELETE FROM devices WHERE id=? AND user_id=?", (identifier, user_id))
+            if ids:
+                db.event(c, user_id, "revoked_deleted", str(len(ids)))
+            return len(ids)
 
 
 def add_rule(actor, kind, value, action, priority):
@@ -301,7 +341,7 @@ def download_link(user_id, device_id, protocol):
     device = device_for(user_id, device_id)
     if not device["desired"] or device["state"] != "applied":
         raise ValueError("Профиль ещё не применён или отозван")
-    if protocol not in {"awg", "vless", "singbox"}:
+    if protocol not in {"awg", "amnezia", "vless", "singbox"}:
         raise ValueError("Неизвестный протокол")
     value = security.token()
     now = int(time.time())

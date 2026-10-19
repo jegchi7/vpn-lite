@@ -17,10 +17,14 @@ class PathState:
         self.failures = 0
         self.successes = 0
         self.targets = [{"state": "unknown", "failures": 0}, {"state": "unknown", "failures": 0}]
+        self.latency_ms = None
 
-    def observe(self, results, threshold):
-        for target, success in zip(self.targets, results):
+    def observe(self, observations, threshold):
+        results = [item[0] for item in observations]
+        self.latency_ms = min((item[1] for item in observations if item[0]), default=None)
+        for target, (success, latency) in zip(self.targets, observations):
             target["state"] = "available" if success else "unavailable"
+            target["latency_ms"] = latency if success else None
             target["failures"] = 0 if success else target["failures"] + 1
         if any(results):
             self.successes += 1
@@ -33,21 +37,24 @@ class PathState:
                 self.state = "unavailable"
 
     def export(self):
-        return {"state": self.state, "successes": self.successes, "failures": self.failures, "destinations": self.targets}
+        return {"state": self.state, "successes": self.successes, "failures": self.failures, "latency_ms": self.latency_ms, "destinations": self.targets}
 
 
 async def request_through(proxy, url):
+    started = time.monotonic()
     try:
         async with httpx.AsyncClient(proxy=proxy, timeout=8, follow_redirects=False, trust_env=False) as client:
-            response = await client.get(url, headers={"User-Agent": "ruvpn-path-monitor/1.0"})
-            return response.status_code == 204
+            response = await client.get(url, headers={"User-Agent": "CHIMERA-path-monitor/1.1"})
+            return response.status_code == 204, round((time.monotonic() - started) * 1000)
     except (httpx.HTTPError, OSError, ValueError):
-        return False
+        return False, None
 
 
 async def run():
     config = read_json(ETC / "control.json")
     paths = config["paths"]
+    reverse = config.get("topology", {}).get("entry", "ru") == "foreign"
+    remote_label = "Путь в Россию" if reverse else "Зарубежный путь"
     states = {"primary": PathState(), "backup": PathState()}
     active = "primary" if paths.get("primary_enabled", True) else "backup"
     for name, state in states.items():
@@ -60,7 +67,7 @@ async def run():
         try:
             credentials = config["proxy_auth"]
             proxies = {name: f"http://{credentials['username']}:{credentials['password']}@127.0.0.1:{port}" for name, port in [("primary", 10081), ("backup", 10082)]}
-            checks = await asyncio.gather(*(request_through(proxies[name], url) if paths.get(name + "_enabled", True) else asyncio.sleep(0, result=False) for name in states for url in paths["urls"]))
+            checks = await asyncio.gather(*(request_through(proxies[name], url) if paths.get(name + "_enabled", True) else asyncio.sleep(0, result=(False, None)) for name in states for url in paths["urls"]))
             for n, state in enumerate(states.values()):
                 if state.state != "disabled":
                     state.observe(checks[n * 2:n * 2 + 2], paths["failures"])
@@ -98,12 +105,12 @@ async def run():
                 down_since = down_since or now
                 if not down_notified and now - down_since >= config["telegram"]["notify_after"]:
                     with db.transaction() as c:
-                        db.event(c, None, "foreign_down", "Оба защищённых пути недоступны")
+                        db.event(c, None, "hop_down", remote_label + ": оба защищённых транспорта недоступны")
                     down_notified = True
             else:
                 if down_notified:
                     with db.transaction() as c:
-                        db.event(c, None, "foreign_recovered", "Защищённый путь снова доступен")
+                        db.event(c, None, "hop_recovered", remote_label + " снова доступен")
                 down_since, down_notified = None, False
             status = {"checked_at": int(time.time()), "active": active, "mode": mode, **{name: state.export() for name, state in states.items()}}
             with db.transaction() as c:

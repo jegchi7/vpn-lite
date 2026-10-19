@@ -12,3 +12,4 @@ bin/
 vendor/*
 !vendor/README.md
 dist/
+node_modules/

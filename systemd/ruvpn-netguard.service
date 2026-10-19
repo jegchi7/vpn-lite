@@ -1,5 +1,5 @@
 [Unit]
-Description=RU / Foreign scoped firewall and policy routing
+Description=CHIMERA scoped firewall and policy routing
 After=network-online.target
 Wants=network-online.target
 Before=ruvpn-awg.service ruvpn-sing.service

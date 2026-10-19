@@ -22,13 +22,20 @@ def token():
     return secrets.token_urlsafe(32)
 
 
-def password_hash(value):
-    if not 12 <= len(value) <= 256:
-        raise ValueError("Пароль: от 12 до 256 символов")
+def password_minimum(admin=False):
+    return 12 if admin else 8
+
+
+def password_hash(value, *, admin=True):
+    minimum = password_minimum(admin)
+    if not isinstance(value, str) or not minimum <= len(value) <= 256:
+        raise ValueError(f"Пароль: от {minimum} до 256 символов")
     return PH.hash(value)
 
 
 def verify_password(hashed, value):
+    if not isinstance(value, str) or len(value) > 256:
+        return False
     try:
         return PH.verify(hashed or DUMMY, value[:256])
     except (VerificationError, InvalidHashError):
@@ -62,12 +69,15 @@ def allow_attempt(bucket, limit=8, window=900):
     return True
 
 
-def new_session(user_id):
+def new_session(user_id, *, remember=False, verified_hash=None):
     value, csrf = token(), token()
     now = int(time.time())
     with db.transaction() as c:
+        user = c.execute("SELECT password,blocked FROM users WHERE id=?", (user_id,)).fetchone()
+        if not user or user["blocked"] or not user["password"] or (verified_hash is not None and user["password"] != verified_hash):
+            raise ValueError("Доступ изменился. Войдите заново")
         c.execute("DELETE FROM sessions WHERE expires < ?", (now,))
-        c.execute("INSERT INTO sessions VALUES(?,?,?,?)", (digest(value), user_id, csrf, now + 43200))
+        c.execute("INSERT INTO sessions VALUES(?,?,?,?)", (digest(value), user_id, csrf, now + (604800 if remember else 43200)))
     return value
 
 

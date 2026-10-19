@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark"><meta name="theme-color" content="#080d0b">
+  <title>CHIMERA · Частная сеть</title><link rel="icon" href="/static/mark.svg" type="image/svg+xml">
+  {% for css in entry.get('css', []) %}<link rel="stylesheet" href="/static/panel/{{css}}">{% endfor %}
+</head>
+<body>
+  <div id="app"></div>
+  <script nonce="{{nonce}}" id="chimera-data" type="application/json">{{data|tojson}}</script>
+  <script type="module" src="/static/panel/{{entry.file}}"></script>
+  <noscript>Для работы панели CHIMERA включите JavaScript. Профили также доступны в привязанном Telegram-боте.</noscript>
+</body>
+</html>

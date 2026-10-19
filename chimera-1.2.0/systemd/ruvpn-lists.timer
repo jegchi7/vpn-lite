@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily CHIMERA policy refresh
+
+[Timer]
+OnCalendar=*-*-* 05:00:00
+RandomizedDelaySec=3600
+Persistent=yes
+Unit=ruvpn-lists.service
+
+[Install]
+WantedBy=timers.target

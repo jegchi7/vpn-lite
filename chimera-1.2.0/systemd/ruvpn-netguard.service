@@ -1,0 +1,15 @@
+[Unit]
+Description=CHIMERA scoped firewall and policy routing
+After=network-online.target
+Wants=network-online.target
+Before=ruvpn-awg.service ruvpn-sing.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/ruvpn/current
+ExecStart=/opt/ruvpn/current/.venv/bin/python -m gateway.ops network-start
+RemainAfterExit=yes
+# No ExecStop: stopping a control unit must not remove the fail-closed guard.
+
+[Install]
+WantedBy=multi-user.target

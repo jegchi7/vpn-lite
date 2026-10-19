@@ -1,0 +1,23 @@
+[Unit]
+Description=CHIMERA private panel, bot and path controller
+After=network-online.target ruvpn-helper.service
+Wants=network-online.target ruvpn-helper.service
+
+[Service]
+Type=simple
+User=ruvpn
+Group=ruvpn
+WorkingDirectory=/opt/ruvpn/current
+ExecStart=/opt/ruvpn/current/.venv/bin/uvicorn gateway.web:app --host 127.0.0.1 --port 8088 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-access-log --log-level warning
+Restart=on-failure
+RestartSec=4
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/ruvpn
+NoNewPrivileges=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

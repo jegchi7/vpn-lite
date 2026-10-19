@@ -1,0 +1,14 @@
+[Unit]
+Description=CHIMERA atomic daily policy list update
+After=ruvpn-helper.service
+ConditionPathExists=/etc/ruvpn/paired.json
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/ruvpn/current
+ExecStart=/opt/ruvpn/current/.venv/bin/python -m gateway.ops lists-update
+ProtectSystem=strict
+ReadWritePaths=/var/lib/ruvpn
+NoNewPrivileges=yes
+PrivateTmp=yes
+UMask=0077

@@ -1,5 +1,5 @@
 [Unit]
-Description=RU / Foreign privileged configuration helper
+Description=CHIMERA privileged configuration helper
 After=network-online.target
 
 [Service]

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 umask 077
-role=${1:?ru or foreign}; shift
+role=${1:?entry or relay}; shift
 if [[ $EUID -ne 0 ]]; then echo 'Запустите от root' >&2; exit 1; fi
-case "$role" in ru|foreign) ;; *) exit 2;; esac
+case "$role" in entry) role=ru;; relay) role=foreign;; ru|foreign) ;; *) exit 2;; esac
 source /etc/os-release
 if [[ $ID != ubuntu || ( $VERSION_ID != 24.04 && $VERSION_ID != 26.04 ) ]]; then
   echo 'Поддерживаются Ubuntu 24.04 / 26.04 LTS. ОС не изменена.' >&2; exit 1
@@ -19,6 +19,10 @@ while (($#)); do
   esac
 done
 if [[ -z $setup_file || ! -f $setup_file ]]; then echo 'Нужен --setup /root/setup.toml' >&2; exit 2; fi
+if [[ $role == ru && ! -f $source_dir/static/panel/manifest.json ]]; then
+  echo 'В релизе нет собранной панели CHIMERA. В исходниках выполните: cd web && npm ci && npm run build' >&2
+  exit 1
+fi
 if [[ -e /etc/ruvpn/network-transaction.json ]]; then
   echo 'Сначала подтвердите или откатите ожидающее изменение сети.' >&2; exit 1
 fi
@@ -32,13 +36,14 @@ for account in ruvpn ruvpn-net ruvpn-web; do
   if ! id "$account" &>/dev/null; then useradd --system --user-group --home-dir "/var/lib/$account" --shell /usr/sbin/nologin "$account"; fi
   install -d -m 0700 -o "$account" -g "$account" "/var/lib/$account"
 done
-install -d -m 0755 /etc/ruvpn /opt/ruvpn/releases /run/ruvpn
+# An existing parent can retain private permissions from an earlier install.
+install -d -m 0755 /etc/ruvpn /opt/ruvpn /opt/ruvpn/releases /run/ruvpn
 # Code and all executable assets remain root-owned, never writable by the panel.
 release_version=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["version"])' "$source_dir/release.json")
 if [[ ! $release_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo 'Некорректная версия релиза' >&2; exit 1; fi
 release_dir="/opt/ruvpn/releases/$release_version-$(date -u +%Y%m%dT%H%M%S)"
 install -d -m 0755 "$release_dir"
-tar -C "$source_dir" --exclude=.git --exclude=.venv --exclude=__pycache__ --exclude='*.pyc' --exclude=setup.toml --exclude=setup.json --exclude='*.ruvpn' --exclude='.env*' -cf - . | tar --no-same-owner -C "$release_dir" -xf -
+tar -C "$source_dir" --exclude=.git --exclude=.venv --exclude=node_modules --exclude=__pycache__ --exclude='*.pyc' --exclude=setup.toml --exclude=setup.json --exclude='*.ruvpn' --exclude='.env*' -cf - . | tar --no-same-owner -C "$release_dir" -xf -
 chmod -R u=rwX,go=rX "$release_dir"
 chmod 0755 "$release_dir"/scripts/*.sh "$release_dir"/scripts/*.py
 python3 "$release_dir/scripts/assets.py" --role "$role"

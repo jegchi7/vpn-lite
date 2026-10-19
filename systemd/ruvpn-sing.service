@@ -1,5 +1,5 @@
 [Unit]
-Description=RU / Foreign sing-box data plane
+Description=CHIMERA sing-box data plane
 After=network-online.target ruvpn-netguard.service
 Wants=network-online.target
 Requires=ruvpn-netguard.service

@@ -255,7 +255,7 @@ def install_code(image):
     release.mkdir(parents=True, mode=0o755)
     for path in [BASE, BASE / 'releases', release]:
         path.chmod(0o755)
-    files = ['release.json', 'gateway/__init__.py', 'gateway/config.py', 'gateway/compiler.py', 'gateway/crypto.py',
+    files = ['release.json', 'gateway/__init__.py', 'gateway/config.py', 'gateway/compiler.py', 'gateway/topology.py', 'gateway/crypto.py',
              'scripts/foreign-compat.py', 'scripts/foreign-compat.sh']
     for name in files:
         target = release / name
@@ -293,7 +293,7 @@ def write_material(meta, s, cert, key):
 
 def unit_text():
     return '''[Unit]
-Description=RU / Foreign egress (preserves existing Docker VPN)
+Description=CHIMERA egress (preserves existing Docker VPN)
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=60

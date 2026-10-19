@@ -63,6 +63,20 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE TABLE IF NOT EXISTS throttle (
  bucket TEXT PRIMARY KEY, attempts INTEGER NOT NULL, reset_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS metric_samples (
+ created INTEGER PRIMARY KEY, elapsed REAL NOT NULL, download REAL, upload REAL,
+ connections INTEGER, cpu REAL, memory REAL,
+ primary_ms REAL, backup_ms REAL
+);
+CREATE TABLE IF NOT EXISTS passkeys (
+ id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
+ label TEXT NOT NULL, credential BLOB NOT NULL, sign_count INTEGER NOT NULL DEFAULT 0,
+ created INTEGER NOT NULL, last_used INTEGER
+);
+CREATE TABLE IF NOT EXISTS auth_challenges (
+ token_hash TEXT PRIMARY KEY, user_id INTEGER REFERENCES users(id),
+ kind TEXT NOT NULL, state TEXT NOT NULL, expires INTEGER NOT NULL
+);
 """
 
 

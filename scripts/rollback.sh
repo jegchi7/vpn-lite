@@ -7,6 +7,12 @@ fi
 previous=$(readlink -f /opt/ruvpn/previous)
 current=$(readlink -f /opt/ruvpn/current)
 if [[ ! -d $previous || $previous == "$current" ]]; then echo 'Предыдущего релиза нет' >&2; exit 1; fi
+python3 - "$previous/release.json" /etc/ruvpn/setup.json <<'PY'
+import json,sys
+release,setup=(json.load(open(p)) for p in sys.argv[1:])
+if setup.get("deployment",{}).get("entry","ru")=="foreign" and not release.get("capabilities",{}).get("foreign_entry"):
+    raise SystemExit("Предыдущий релиз не поддерживает зарубежный вход; откат версии остановлен")
+PY
 role=$(cat /etc/ruvpn/role)
 ln -sfn -- "$previous" /opt/ruvpn/current
 ln -sfn -- "$current" /opt/ruvpn/previous

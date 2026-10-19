@@ -1,5 +1,5 @@
 [Unit]
-Description=Daily RU / Foreign policy refresh
+Description=Daily CHIMERA policy refresh
 
 [Timer]
 OnCalendar=*-*-* 05:00:00

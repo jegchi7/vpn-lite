@@ -1,5 +1,5 @@
 [Unit]
-Description=RU / Foreign private panel, bot and path controller
+Description=CHIMERA private panel, bot and path controller
 After=network-online.target ruvpn-helper.service
 Wants=network-online.target ruvpn-helper.service
 

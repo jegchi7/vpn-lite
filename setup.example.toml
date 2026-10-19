@@ -1,5 +1,10 @@
 # Один файл для двух хостов. На каждом uplink=auto определяется локально.
 # Никаких паролей/ключей в этом файле. Замените CHANGE_ME перед установкой.
+[deployment]
+# ru: клиенты → RU → зарубежный выход.
+# foreign: клиенты → зарубежный вход; российские назначения → выход RU.
+entry = "ru"
+
 [network]
 ru_ipv4 = "CHANGE_ME"
 uplink = "auto"
@@ -26,10 +31,12 @@ mtu = 1280
 
 [vless]
 port = 443
-# Владелец выбирает доступный с RU TLS 1.3 / X25519 target.
+# TLS 1.3 target, доступный с входного сервера.
 server_name = "www.microsoft.com"
 
 [foreign]
+# Всегда физический IPv4 зарубежного сервера. Параметры транспорта ниже
+# относятся к межсерверному relay, который в entry=foreign находится на RU.
 ipv4 = "CHANGE_ME"
 reality_port = 443
 hysteria_port = 443

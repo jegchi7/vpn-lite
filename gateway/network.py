@@ -11,6 +11,7 @@ from pathlib import Path
 from .compiler import PRIVATE
 from .config import ETC, ROOT, atomic, read_json, setup, write_json
 from .system import run, service
+from . import topology
 
 TX = ETC / "network-transaction.json"
 OWNED = ["role", "setup.json", "guard.nft", "public.json", "control.json", "Caddyfile", "sing-box.json", "awg.conf", "applied.json", "paired.json"]
@@ -49,7 +50,7 @@ def preflight(c, role):
         addresses = json.loads(run(["ip", "-j", "addr", "show"]).stdout)
         local_ips = {a["local"] for interface in addresses for a in interface.get("addr_info", []) if "local" in a}
         if any(svc["ip"] in local_ips for svc in n.get("allowed_services", [])):
-            raise ValueError("Пользовательский сервис не может указывать на адрес самого RU хоста")
+            raise ValueError("Пользовательский сервис не может указывать на адрес входного хоста")
         tcp |= {80, c["panel"]["port"], c["vless"]["port"]}
         udp.add(c["awg"]["port"])
     else:
@@ -68,7 +69,7 @@ def preflight(c, role):
                 continue
             local = fields[3]
             host, _, port = local.rpartition(":")
-            host = host.strip("[]")
+            host = host.strip("[]").split("%", 1)[0]
             if host in {"127.0.0.1", "127.0.0.53", "127.0.0.54", "::1"}:
                 continue
             if (ETC / "role").exists() and any('"' + name + '"' in line for name in ["caddy", "sing-box", "amneziawg-go"]):
@@ -124,7 +125,7 @@ def render(c, role):
         tcp += [80, c["panel"]["port"], c["vless"]["port"]]
         udp += [c["awg"]["port"]]
     else:
-        lines += [f"ip saddr {n['ru_ipv4']} tcp dport {c['foreign']['reality_port']} accept", f"ip saddr {n['ru_ipv4']} udp dport {c['foreign']['hysteria_port']} accept"]
+        lines += [f"ip saddr {topology.entry_ip(c)} tcp dport {c['foreign']['reality_port']} accept", f"ip saddr {topology.entry_ip(c)} udp dport {c['foreign']['hysteria_port']} accept"]
     if tcp:
         lines.append("tcp dport { " + ", ".join(map(str, sorted(set(tcp)))) + " } accept")
     if udp:
@@ -192,7 +193,8 @@ def awg_setup(c):
     run(["sysctl", "-q", "-w", "net.ipv6.conf.awg0.disable_ipv6=0"])
     run(["ip", "-6", "addr", "replace", f"{network6[1]}/{network6.prefixlen}", "dev", "awg0"])
     run(["ip", "link", "set", "dev", "awg0", "mtu", str(a["mtu"]), "up"])
-    run(["sysctl", "-q", "-w", "net.ipv4.conf.awg0.rp_filter=0"])
+    # New VPN interfaces can inherit forwarding=0 while global ip_forward is 1.
+    run(["sysctl", "-q", "-w", "net.ipv4.conf.awg0.rp_filter=0", "net.ipv4.conf.awg0.forwarding=1"])
     from .system import BIN
     run([BIN / "awg", "setconf", "awg0", ETC / "awg.conf"])
     route(c)
@@ -208,7 +210,7 @@ def route(c):
         elif "iif awg0" not in existing or TABLE not in existing:
             raise ValueError("Зарезервированный приоритет ip rule занят")
     if run(["ip", "link", "show", "dev", "ruvpn-tun"], check=False).returncode == 0:
-        run(["sysctl", "-q", "-w", "net.ipv4.conf.ruvpn-tun.rp_filter=0"])
+        run(["sysctl", "-q", "-w", "net.ipv4.conf.ruvpn-tun.rp_filter=0", "net.ipv4.conf.ruvpn-tun.forwarding=1"])
         run(["ip", "route", "replace", "default", "dev", "ruvpn-tun", "table", TABLE, "metric", "10"])
 
 

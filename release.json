@@ -1,15 +1,17 @@
 {
-  "product": "RU / Foreign",
-  "version": "1.0.1",
+  "product": "CHIMERA",
+  "version": "1.2.0",
   "schema": 1,
-  "released": "2026-10-18",
+  "released": "2026-10-19",
   "ubuntu": [
     "24.04",
     "26.04"
   ],
   "python": ">=3.12,<3.15",
   "foreign_compat": {
-    "ubuntu": ["20.04"],
+    "ubuntu": [
+      "20.04"
+    ],
     "python": ">=3.8",
     "crypto_package": "python3-cryptography (Ubuntu)",
     "image": "ghcr.io/sagernet/sing-box@sha256:80c639ba467885b28511fb7c980565c2d30a8752f778e7bc8abdbc91fbfd95ec",
@@ -63,5 +65,16 @@
       "sha256": "94f3e30b8e374bc285e7dadc11e0865726b9bc6e85b841ccceaabc0214c6b7c8",
       "filename": "go1.27.2.linux-arm64.tar.gz"
     }
+  },
+  "panel": {
+    "framework": "Svelte",
+    "svelte": "5.57.1",
+    "vite": "8.3.1",
+    "typescript": "5.9.3",
+    "font": "Manrope",
+    "font_license": "OFL-1.1"
+  },
+  "capabilities": {
+    "foreign_entry": true
   }
 }

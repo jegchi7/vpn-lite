@@ -1,5 +1,5 @@
 [Unit]
-Description=RU / Foreign HTTPS panel endpoint
+Description=CHIMERA HTTPS panel endpoint
 After=network-online.target
 Wants=network-online.target
 

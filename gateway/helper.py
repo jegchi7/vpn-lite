@@ -12,7 +12,7 @@ import struct
 import time
 import urllib.request
 from pathlib import Path
-from . import compiler, lists, network
+from . import compiler, lists, network, topology
 from .config import ETC, SOCKET, atomic, read_json, setup, write_json
 from .system import BIN, run, service
 
@@ -103,6 +103,11 @@ def status():
     applied = read_json(ETC / "applied.json") if (ETC / "applied.json").exists() else {}
     result["revision"] = applied.get("revision")
     result["lists_version"] = applied.get("lists_version", "unknown")
+    configuration = setup()
+    paired = read_json(ETC / "paired.json") if (ETC / "paired.json").exists() else {}
+    result["gateways"] = [{"role": "entry", "region": topology.entry_region(configuration), "endpoint": topology.entry_ip(configuration), "port": configuration["vless"]["port"]}]
+    if paired.get("ipv4"):
+        result["gateways"].append({"role": "relay", "region": topology.remote_region(configuration), "endpoint": paired["ipv4"], "port": paired["reality_port"]})
     return result
 
 
@@ -117,6 +122,9 @@ def dispatch(request):
         return select(request.get("path"))
     if operation == "status":
         return status()
+    if operation == "metrics":
+        from .telemetry import privileged_snapshot
+        return privileged_snapshot()
     if operation == "explain":
         value = request.get("value")
         if not isinstance(value, str) or len(value) > 253:

@@ -10,7 +10,7 @@ import sqlite3
 import tempfile
 import time
 from pathlib import Path, PurePosixPath
-from . import control, crypto, network
+from . import control, crypto, network, topology
 from .config import DB_PATH, ETC, STATE, atomic, read_json
 from .system import run
 
@@ -76,7 +76,7 @@ def restore(filename):
     # Restore only onto the same network identity. Moving to another VPS needs
     # a new setup/pairing; importing a foreign NIC name could cut SSH access.
     current = read_json(ETC / "setup.json")
-    if c["network"] != current["network"] or c["foreign"]["ipv4"] != current["foreign"]["ipv4"]:
+    if c["network"] != current["network"] or c["foreign"]["ipv4"] != current["foreign"]["ipv4"] or topology.entry_region(c) != topology.entry_region(current):
         raise ValueError("Сеть копии отличается. Сначала установите эту роль с теми же адресами и uplink; перенос на другой VPS выполняйте с новым сопряжением")
     for name, target in data["links"].items():
         safe_relative(name)

@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+setup.toml
+setup.json
+*.sqlite3*
+*.ruvpn
+*.key
+*.conf
+.env*
+bin/
+vendor/*
+!vendor/README.md
+dist/
+node_modules/
